@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tech Repair Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tab-active {
+            background-color: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.5);
+        }
+
+        .modal-animate {
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="max-w-[480px] mx-auto min-h-screen pb-20">
+
+    <header class="p-6 text-center">
+        <h1 class="text-3xl font-bold tracking-tight text-white" contenteditable="true">My Repair Shop</h1>
+        <p class="text-blue-400 text-sm font-medium uppercase tracking-widest mt-1">Tech Repair Portfolio</p>
+    </header>
+
+    <nav class="flex px-6 mb-6">
+        <div class="flex w-full bg-slate-800/50 p-1 rounded-xl border border-slate-700">
+            <button onclick="switchTab('jobs')" id="btn-jobs" class="flex-1 py-3 rounded-lg text-sm font-semibold transition-all duration-300 tab-active">
+                <i class="fas fa-tools mr-2"></i>Jobs
+            </button>
+            <button onclick="switchTab('portfolio')" id="btn-portfolio" class="flex-1 py-3 rounded-lg text-sm font-semibold transition-all duration-300 text-slate-400">
+                <i class="fas fa-award mr-2"></i>Portfolio
+            </button>
+        </div>
+    </nav>
+
+    <main class="px-6">
+        <section id="tab-jobs" class="space-y-4">
+            <button onclick="openJobModal()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold shadow-lg shadow-blue-900/20 transition-transform active:scale-95">
+                <i class="fas fa-plus mr-2"></i>Add New Job
+            </button>
+            <div id="job-list" class="space-y-4 pt-2"></div>
+        </section>
+
+        <section id="tab-portfolio" class="hidden space-y-4">
+            <div id="portfolio-list" class="space-y-6"></div>
+        </section>
+    </main>
+
+    <div id="modal-job" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md rounded-3xl p-6 modal-animate translate-y-full opacity-0">
+            <h3 id="job-modal-title" class="text-xl font-bold mb-4">New Repair Job</h3>
+            <input type="hidden" id="edit-job-id">
+            <div class="space-y-4">
+                <input type="text" id="job-title" placeholder="Device / Title" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 outline-none">
+                <textarea id="job-desc" rows="3" placeholder="Issue Description" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 outline-none"></textarea>
+                <select id="job-status" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 outline-none">
+                    <option value="Diagnostic">Diagnostic</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Complete">Complete</option>
+                </select>
+                <div class="flex gap-3">
+                    <button onclick="closeModal('modal-job')" class="flex-1 py-3 bg-slate-700 rounded-xl">Cancel</button>
+                    <button onclick="saveJob()" class="flex-1 py-3 bg-blue-600 rounded-xl">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-port" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md rounded-3xl p-6 modal-animate translate-y-full opacity-0">
+            <h3 class="text-xl font-bold mb-4 text-green-400">Add to Portfolio</h3>
+            <input type="hidden" id="port-job-id">
+            <div class="space-y-4">
+                <textarea id="port-fix" rows="4" placeholder="How I Fixed It" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 outline-none"></textarea>
+                <input type="text" id="port-tools" placeholder="Tools Used" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 outline-none">
+                <div class="flex gap-3">
+                    <button onclick="closeModal('modal-port')" class="flex-1 py-3 bg-slate-700 rounded-xl">Cancel</button>
+                    <button onclick="savePortfolioEntry()" class="flex-1 py-3 bg-green-600 rounded-xl">Publish</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let jobs = JSON.parse(localStorage.getItem('repair_jobs')) || [];
+        let portfolio = JSON.parse(localStorage.getItem('repair_portfolio')) || [];
+        const statusClasses = {'Diagnostic': 'bg-blue-500', 'In Progress': 'bg-orange-500', 'Complete': 'bg-green-500'};
+
+        function switchTab(tab) {
+            document.getElementById('btn-jobs').className = tab === 'jobs' ? 'flex-1 py-3 rounded-lg text-sm font-semibold tab-active' : 'flex-1 py-3 rounded-lg text-sm font-semibold text-slate-400';
+            document.getElementById('btn-portfolio').className = tab === 'portfolio' ? 'flex-1 py-3 rounded-lg text-sm font-semibold tab-active' : 'flex-1 py-3 rounded-lg text-sm font-semibold text-slate-400';
+            document.getElementById('tab-jobs').classList.toggle('hidden', tab !== 'jobs');
+            document.getElementById('tab-portfolio').classList.toggle('hidden', tab !== 'portfolio');
+            tab === 'jobs' ? renderJobs() : renderPortfolio();
+        }
+
+        function openJobModal(id = null) {
+            const modal = document.getElementById('modal-job');
+            document.getElementById('edit-job-id').value = id || '';
+            if (id) {
+                const job = jobs.find(j => j.id === id);
+                document.getElementById('job-title').value = job.title;
+                document.getElementById('job-desc').value = job.desc;
+                document.getElementById('job-status').value = job.status;
+            }
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.querySelector('.modal-animate').classList.remove('translate-y-full', 'opacity-0'), 10);
+        }
+
+        function saveJob() {
+            const title = document.getElementById('job-title').value;
+            const desc = document.getElementById('job-desc').value;
+            const status = document.getElementById('job-status').value;
+            const id = document.getElementById('edit-job-id').value;
+            if (!title || !desc) return;
+            if (id) {
+                const idx = jobs.findIndex(j => j.id == id);
+                jobs[idx] = { ...jobs[idx], title, desc, status };
+            } else {
+                jobs.push({ id: Date.now(), title, desc, status });
+            }
+            localStorage.setItem('repair_jobs', JSON.stringify(jobs));
+            renderJobs();
+            closeModal('modal-job');
+        }
+
+        function deleteJob(id) { if (confirm("Delete job?")) { jobs = jobs.filter(j => j.id !== id); localStorage.setItem('repair_jobs', JSON.stringify(jobs)); renderJobs(); } }
+
+        function renderJobs() {
+            const list = document.getElementById('job-list');
+            list.innerHTML = jobs.length ? '' : '<p class="text-center py-10 text-slate-500">No jobs yet</p>';
+            jobs.sort((a,b) => (a.status === 'Complete' ? 1 : -1)).forEach(job => {
+                const div = document.createElement('div');
+                div.className = "glass-card p-5 rounded-2xl fade-in";
+                div.innerHTML = `
+                    <div class="flex justify-between mb-2"><span class="px-2 py-1 rounded-md text-[10px] font-bold ${statusClasses[job.status]}">${job.status}</span>
+                    <div class="space-x-2"><button onclick="openJobModal(${job.id})"><i class="fas fa-edit"></i></button><button onclick="deleteJob(${job.id})"><i class="fas fa-trash"></i></button></div></div>
+                    <h4 class="font-bold">${job.title}</h4><p class="text-slate-400 text-sm">${job.desc}</p>
+                    <button onclick="openPortfolioModal(${job.id})" ${job.status !== 'Complete' ? 'disabled' : ''} class="w-full mt-4 py-2 rounded-xl text-xs font-bold ${job.status === 'Complete' ? 'bg-green-600' : 'bg-slate-800 text-slate-600'}">Add to Portfolio</button>`;
+                list.appendChild(div);
+            });
+        }
+
+        function openPortfolioModal(id) {
+            document.getElementById('port-job-id').value = id;
+            document.getElementById('modal-port').classList.remove('hidden');
+            setTimeout(() => document.getElementById('modal-port').querySelector('.modal-animate').classList.remove('translate-y-full', 'opacity-0'), 10);
+        }
+
+        function savePortfolioEntry() {
+            const id = document.getElementById('port-job-id').value;
+            const job = jobs.find(j => j.id == id);
+            portfolio.unshift({ title: job.title, originalDesc: job.desc, solution: document.getElementById('port-fix').value, tools: document.getElementById('port-tools').value, date: new Date().toLocaleDateString(), id: Date.now() });
+            localStorage.setItem('repair_portfolio', JSON.stringify(portfolio));
+            closeModal('modal-port');
+            switchTab('portfolio');
+        }
+
+        function deletePortfolio(id) { portfolio = portfolio.filter(p => p.id !== id); localStorage.setItem('repair_portfolio', JSON.stringify(portfolio)); renderPortfolio(); }
+
+        function renderPortfolio() {
+            const list = document.getElementById('portfolio-list');
+            list.innerHTML = portfolio.length ? '' : '<p class="text-center py-10 text-slate-500">No portfolio entries</p>';
+            portfolio.forEach(p => {
+                const div = document.createElement('div');
+                div.className = "bg-slate-800 border-l-4 border-green-500 p-5 rounded-r-2xl fade-in";
+                div.innerHTML = `<div class="flex justify-between text-[10px] text-slate-500 mb-2"><span>${p.date}</span><button onclick="deletePortfolio(${p.id})">×</button></div>
+                    <h4 class="font-bold text-lg">${p.title}</h4><p class="text-xs italic text-slate-400 mb-3">${p.originalDesc}</p>
+                    <div class="bg-slate-900 p-3 rounded-lg text-sm"><p class="text-green-400 text-[10px] font-bold uppercase">The Fix</p>${p.solution}</div>`;
+                list.appendChild(div);
+            });
+        }
+
+        function closeModal(id) { 
+            const m = document.getElementById(id); 
+            m.querySelector('.modal-animate').classList.add('translate-y-full', 'opacity-0');
+            setTimeout(() => m.classList.add('hidden'), 300); 
+        }
+
+        renderJobs();
+    </script>
+</body>
+</html>
